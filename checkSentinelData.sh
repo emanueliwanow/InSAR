@@ -3,40 +3,57 @@ set -euo pipefail
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 --polygon=\"coords\" --startdate=\"YYYY-MM-DD\" --enddate=\"YYYY-MM-DD\""
-    echo "Example: $0 --polygon=\"-47.46112 -6.56085,-47.45888 -6.56045,-47.45903 -6.55953,-47.46127 -6.55999,-47.46112 -6.56085\" --startdate=\"2019-01-01\" --enddate=\"2024-12-21\""
+    echo "Usage: $0 <config_file>"
+    echo ""
+    echo "Arguments:"
+    echo "  config_file    Path to configuration file (required)"
+    echo ""
+    echo "Config file format:"
+    echo "  POLYGON=\"coordinates\""
+    echo "  START_DATE=\"YYYY-MM-DD\""
+    echo "  END_DATE=\"YYYY-MM-DD\""
+    echo ""
+    echo "Example:"
+    echo "  $0 /insar-data/RioNegro/parameters.cfg"
     exit 1
 }
 
-# Default values
-POLYGON=""
-START_DATE=""
-END_DATE=""
+# Function to load config file
+load_config() {
+    local config_file="$1"
+    
+    if [[ ! -f "$config_file" ]]; then
+        echo "Error: Config file '$config_file' not found."
+        exit 1
+    fi
+    
+    # Source the config file safely
+    # First check if the config file has proper format
+    if ! grep -E '^[A-Z_]+=.*$' "$config_file" > /dev/null; then
+        echo "Warning: Config file may not have proper KEY=VALUE format"
+    fi
+    
+    # Source the config file
+    source "$config_file"
+    
+    echo "Loaded configuration from: $config_file"
+}
 
-# Parse command line arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --polygon=*)
-            POLYGON="${1#*=}"
-            shift
-            ;;
-        --startdate=*)
-            START_DATE="${1#*=}"
-            shift
-            ;;
-        --enddate=*)
-            END_DATE="${1#*=}"
-            shift
-            ;;
-        -h|--help)
-            usage
-            ;;
-        *)
-            echo "Unknown option $1"
-            usage
-            ;;
-    esac
-done
+# Check command line arguments
+if [[ $# -ne 1 ]]; then
+    echo "Error: Exactly one argument (config file path) is required."
+    usage
+fi
+
+# Check for help option
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    usage
+fi
+
+CONFIG_FILE="$1"
+
+# Load config file
+load_config "$CONFIG_FILE"
 
 # Validate required parameters
 if [[ -z "$POLYGON" || -z "$START_DATE" || -z "$END_DATE" ]]; then
@@ -47,22 +64,40 @@ fi
 # 1) Query SLC Bursts to get measurement TIFF paths
 #    We use the OData Bursts endpoint, selecting only the S3Path field.
 #    Each path ends in "/measurement/...tiff"
+# Build a base filter (no track/swath yet)
 url="https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
-filter="OData.CSC.Intersects(area=geography'SRID=4326;POLYGON(($POLYGON))') \
+filter_base="OData.CSC.Intersects(area=geography'SRID=4326;POLYGON(($POLYGON))') \
 and ContentDate/Start ge ${START_DATE}T00:00:00.000Z \
 and ContentDate/Start le ${END_DATE}T23:59:59.999Z \
 and OperationalMode eq 'IW' \
 and PolarisationChannels eq 'VV' \
 and OrbitDirection eq 'DESCENDING' \
-and PlatformSerialIdentifier eq 'A'"
+and PlatformSerialIdentifier eq 'A' \
+and SwathIdentifier eq '$SWATH'"
 
+# 0) Seed: find track+swath if not given
+seed=$(curl -s -G "$url" \
+  --data-urlencode "\$filter=$filter_base" \
+  --data-urlencode "\$select=ParentProductName,RelativeOrbitNumber,SwathIdentifier,ContentDate" \
+  --data-urlencode "\$orderby=ContentDate/Start desc" \
+  --data-urlencode "\$top=1")
+
+RELATIVE_ORBIT="${RELATIVE_ORBIT:-$(echo "$seed" | jq -r '.value[0].RelativeOrbitNumber')}"
+SWATH="${SWATH:-$(echo "$seed" | jq -r '.value[0].SwathIdentifier')}"
+
+echo "Using track (RelativeOrbitNumber): $RELATIVE_ORBIT"
+echo "Using subswath (SwathIdentifier): $SWATH"
+
+# 1) Main query restricted to the same subswath + track
+filter="$filter_base and RelativeOrbitNumber eq $RELATIVE_ORBIT and SwathIdentifier eq '$SWATH'"
 
 response=$(curl -s -G "$url" \
   --data-urlencode "\$filter=$filter" \
-  --data-urlencode "\$select=S3Path,ContentDate,PlatformSerialIdentifier" \
+  --data-urlencode "\$select=S3Path,ContentDate,PlatformSerialIdentifier,ParentProductName" \
   --data-urlencode "\$orderby=ContentDate/Start desc" \
   --data-urlencode "\$count=true" \
-  --data-urlencode "\$top=400")
+  --data-urlencode "\$top=200")
+
 #echo response: $response
 count=$(echo "$response" | jq -r '.["@odata.count"]')
 echo "Found $count Sentinel-1 products in the given area and date range"

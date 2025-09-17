@@ -4,7 +4,7 @@ key: bbf72fd2-453b-478c-b1e2-432b4b684556
 EOF
 chmod 600 ~/.cdsapirc
 POLYGON="-47.46112 -6.56085,-47.45888 -6.56045,-47.45903 -6.55953,-47.46127 -6.55999,-47.46112 -6.56085"
-PROJECT_NAME="Tocantins"
+PROJECT_NAME="AutazMirim"
 DATA_DIR="/insar-data"
 CONTAINER_NAME="insar_container"
 
@@ -87,13 +87,17 @@ mintpy.load.incAngleFile     = ../merged/geom_reference/los.rdr
 mintpy.load.azAngleFile      = ../merged/geom_reference/los.rdr
 mintpy.load.shadowMaskFile   = ../merged/geom_reference/shadowMask.rdr
 mintpy.load.waterMaskFile    = None
+mintpy.load.ystep = 1
+mintpy.load.xstep = 1
 
-mintpy.subset.lalo =  [-6.59:-6.54,-47.49:-47.41]
+
+mintpy.subset.lalo =  [-3.287231067659322:-3.281692047216501,-59.86759807746925:-59.86010724869943]
 #mintpy.subset.lalo =  [$Ssen:$Nsen,$Wsen:$Esen]
-mintpy.reference.minCoherence = 0.5
-# mintpy.reference.lalo        =   -6.558134,-47.450072
+mintpy.reference.minCoherence = 0.2
+
+# mintpy.reference.lalo        =   -3.282897831635766,-59.8629146721553
 # mintpy.topographicResidual.stepFuncDate  = 20170910,20180613  #eruption dates
-# mintpy.deramp                = linear
+mintpy.deramp                = linear
 EOF
 
 smallbaselineApp.py $DATA_DIR/$PROJECT_NAME/mintpy/$PROJECT_NAME.txt 

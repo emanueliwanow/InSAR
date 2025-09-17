@@ -1,63 +1,64 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Function to display usage
-usage() {
-    echo "Usage: $0 <config_file>"
-    echo ""
-    echo "Arguments:"
-    echo "  config_file    Path to configuration file (required)"
-    echo ""
-    echo "Config file format:"
-    echo "  PROJECT_NAME=\"project_name\""
-    echo "  DATA_DIR=\"/path/to/data\""
-    echo ""
-    echo "Example:"
-    echo "  $0 /insar-data/RioNegro/parameters.cfg"
+# Default values
+DEFAULT_PROJECT_NAME="AutazMirim"
+DEFAULT_DATA_DIR="/insar-data"
+
+# Initialize variables with defaults
+PROJECT_NAME="$DEFAULT_PROJECT_NAME"
+DATA_DIR="$DEFAULT_DATA_DIR"
+
+# Function to show usage
+show_help() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Download orbits for Sentinel-1 SLC data.
+
+OPTIONS:
+    --data-dir DIR      Base data directory (default: $DEFAULT_DATA_DIR)
+    --project-name NAME Project name (default: $DEFAULT_PROJECT_NAME)
+    -h, --help          Show this help message
+
+EXAMPLES:
+    $(basename "$0")
+    $(basename "$0") --data-dir /my/data --project-name MyProject
+    $(basename "$0") --project-name Amazon
+EOF
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --data-dir)
+            DATA_DIR="$2"
+            shift 2
+            ;;
+        --project-name)
+            PROJECT_NAME="$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            echo "Error: Unknown option $1" >&2
+            echo "Use --help for usage information." >&2
+            exit 1
+            ;;
+    esac
+done
+
+# Validate inputs
+if [[ -z "$DATA_DIR" ]]; then
+    echo "Error: DATA_DIR cannot be empty" >&2
     exit 1
-}
-
-# Function to load config file
-load_config() {
-    local config_file="$1"
-    
-    if [[ ! -f "$config_file" ]]; then
-        echo "Error: Config file '$config_file' not found."
-        exit 1
-    fi
-    
-    # Source the config file safely
-    # First check if the config file has proper format
-    if ! grep -E '^[A-Z_]+=.*$' "$config_file" > /dev/null; then
-        echo "Warning: Config file may not have proper KEY=VALUE format"
-    fi
-    
-    # Source the config file
-    source "$config_file"
-    
-    echo "Loaded configuration from: $config_file"
-}
-
-# Check command line arguments
-if [[ $# -ne 1 ]]; then
-    echo "Error: Exactly one argument (config file path) is required."
-    usage
 fi
 
-# Check for help option
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    usage
-fi
-
-CONFIG_FILE="$1"
-
-# Load config file
-load_config "$CONFIG_FILE"
-
-# Validate required parameters
-if [[ -z "$PROJECT_NAME" || -z "$DATA_DIR" ]]; then
-    echo "Error: Required parameters (PROJECT_NAME, DATA_DIR) must be defined in the config file."
-    echo "Please check your config file: $CONFIG_FILE"
+if [[ -z "$PROJECT_NAME" ]]; then
+    echo "Error: PROJECT_NAME cannot be empty" >&2
     exit 1
 fi
 
@@ -111,6 +112,14 @@ echo "Downloading orbit files..."
 echo
 
 for slc in "${slcs[@]}"; do
+  #base="$(basename "$slc")"
+  # Extract acquisition date (YYYYMMDD) from the standard S1 name
+  # e.g. S1A_IW_SLC__1SDV_20230727T075102_...
+  #date_str="$(grep -oE '20[0-9]{6}T[0-9]{6}' <<< "$base" | head -n1 | cut -c1-8 || true)"
+  # If we can’t parse a date for any reason, just dump into a generic folder
+  #out_dir="$OUT_ROOT/${date_str:-misc}"
+  #mkdir -p "$out_dir"
+  #echo "→ $base  →  $out_dir"
   echo "Fetching orbits for $slc"
   fetchOrbit.py -i "$slc" -o "$OUT_ROOT" -u "emanueldearaujo123@gmail.com" -p "Ps__143993**" -t /insar-data/.copernicus_dataspace_token
 done

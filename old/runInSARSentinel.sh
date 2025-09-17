@@ -8,8 +8,8 @@ login emanuel_iwanow
 password h2&C5RMt6|.Za/F
 EOF
 chmod 600 ~/.netrc
-POLYGON="-47.46112 -6.56085,-47.45888 -6.56045,-47.45903 -6.55953,-47.46127 -6.55999,-47.46112 -6.56085"
-PROJECT_NAME="Tocantins"
+POLYGON="-59.864345708608 -3.285382102060601,-59.86296662998462 -3.283652106322925,-59.86359955999988 -3.283261531523862,-59.86490909143306 -3.284973346360762,-59.864345708608 -3.285382102060601"
+PROJECT_NAME="AutazMirim"
 DATA_DIR="/insar-data"
 CONTAINER_NAME="insar_container"
 
@@ -74,7 +74,7 @@ dem.py -a stitch --bbox $S $N $W $E -r -s 1 -c -d $DATA_DIR/$PROJECT_NAME/DEM/
 DEM_FILE=$(find $DATA_DIR/$PROJECT_NAME/DEM/ -name "*.dem" -type f | head -1)
 echo "Using DEM file: $DEM_FILE"
 
-cd $DATA_DIR
+cd $DATA_DIR/InSAR
 ./getOrbits.sh --data-dir $DATA_DIR --project-name $PROJECT_NAME
 
 

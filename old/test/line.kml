@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document id="KmlFile">
+	<gx:CascadingStyle kml:id="__managed_style_29183537FC3A6E3C6490">
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>6</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_1A67ABF85F3A6E3C6490">
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_0AEF1E785E3A6E3C6490">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_1A67ABF85F3A6E3C6490</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_29183537FC3A6E3C6490</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Placemark id="0CFDFBE66E3A6F99C304">
+		<name>Path</name>
+		<LookAt>
+			<longitude>-47.82665236922651</longitude>
+			<latitude>-15.82821009989257</latitude>
+			<altitude>1005.933021848262</altitude>
+			<heading>57.67334943496048</heading>
+			<tilt>0</tilt>
+			<gx:fovy>30</gx:fovy>
+			<range>2002.179305718164</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0AEF1E785E3A6E3C6490</styleUrl>
+		<LineString>
+			<coordinates>
+				-47.83343473620299,-15.81842119631264,0 -47.83228085554345,-15.81970167651225,0 -47.83140686368323,-15.82083216840073,0 -47.83062479362561,-15.82190375969192,0 -47.82988764988365,-15.82308478632297,0 -47.82915891569161,-15.82429987973645,0 -47.82861844535567,-15.82535032479165,0 -47.8279940959228,-15.8267646127129,0 -47.82739897844302,-15.8282628839433,0 -47.8269843528312,-15.82952474578556,0 
+			</coordinates>
+		</LineString>
+	</Placemark>
+</Document>
+</kml>
+<?earth data="Cu0ECuoECsIEChQwQ0ZERkJFNjZFM0E2Rjk5QzMwNBK4AxJFChIZzIJ6JwuoL8AhkH6tvs_pR8AR5qUo1HZvj0AYASG593RQMNZMQCkAAAAAAAAAADEADuubt0ifQEH_______89QFABGAEiBFBhdGgqADIAOgQKABIAQAJKxAISwQISvgIKHQoSGS4IYRoIoy_AIc6rS_2t6kfAKQAAAAAAAAAACh0KEhllMSrwr6MvwCGx0tctiOpHwCkAAAAAAAAAAAodChIZZJItHUSkL8AhPphEimvqR8ApAAAAAAAAAAAKHQoSGSes0JHQpC_AITPvyelR6kfAKQAAAAAAAAAACh0KEhlEL35ea6UvwCFjzS3COepHwCkAAAAAAAAAAAodChIZLSFDogqmL8AhiQod4SHqR8ApAAAAAAAAAAAKHQoSGTpyWVGUpi_AIR3VUSsQ6kfAKQAAAAAAAAAACh0KEhkcL_qwTacvwCF_ouW1--lHwCkAAAAAAAAAAAodChIZ5Q2eEhKoL8AhC5SwNejpR8ApAAAAAAAAAAAKHQoSGU--rHe3qC_AIVzbjp_a6UfAKQAAAAAAAAAAEAIYACAAKAByAIIBDgoGCAESAggBEgQIARABiAEBMm8KIgogCgMI0A8aBwjS7WUQ_wEhAAAAAAAA8D8pAAAAAAAAAAASDQoICK2A7wcQ_wEQoB8aGAoHCP___wcQQBIICK2A7wcQ_wEYoB8gACIJCAISBQj___8HKhUIARIICP___wcQ_wEZAAAAAAAA8D8SABohMW84TTQtVFdxaExQRmd6OGxya2x2YmxYbEtJQV9CWGlh"?>
