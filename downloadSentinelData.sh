@@ -76,8 +76,7 @@ and ContentDate/Start le ${END_DATE}T23:59:59.999Z \
 and OperationalMode eq 'IW' \
 and PolarisationChannels eq 'VV' \
 and OrbitDirection eq 'DESCENDING' \
-and PlatformSerialIdentifier eq 'A'
-and SwathIdentifier eq '$SWATH'"
+and PlatformSerialIdentifier eq 'A'"
 
 # 0) Seed: find track+swath if not given
 seed=$(curl -s -G "$url" \
@@ -90,10 +89,10 @@ RELATIVE_ORBIT="${RELATIVE_ORBIT:-$(echo "$seed" | jq -r '.value[0].RelativeOrbi
 SWATH="${SWATH:-$(echo "$seed" | jq -r '.value[0].SwathIdentifier')}"
 
 echo "Using track (RelativeOrbitNumber): $RELATIVE_ORBIT"
-echo "Using subswath (SwathIdentifier): $SWATH"
+#echo "Using subswath (SwathIdentifier): $SWATH"
 
 # 1) Main query restricted to the same subswath + track
-filter="$filter_base and RelativeOrbitNumber eq $RELATIVE_ORBIT and SwathIdentifier eq '$SWATH'"
+filter="$filter_base and RelativeOrbitNumber eq $RELATIVE_ORBIT"
 
 
 response=$(curl -s -G "$url" \
@@ -118,7 +117,7 @@ echo "$response" | jq -c '.value[]' | while read -r item; do
   echo "Product #$counter - Start Date: $start_date Satellite: $platform_serial_identifier"
   
   # Only download every other product (odd-numbered products)
-  if [ $((counter % 2)) -eq 1 ]; then
+  if [ $((counter % 4)) -eq 0 ]; then
     echo "  --> Downloading product #$counter"
     # Strip off the "/measurement/…" to get the SAFE prefix
     safe_prefix="${s3path%/measurement*}/"

@@ -101,11 +101,11 @@ num_existing_orbits=${#existing_orbits[@]}
 echo "Found $num_existing_orbits existing orbit files in $OUT_ROOT"
 
 # If we already have at least as many orbit files as SLC files, skip downloading
-if (( num_existing_orbits >= ${#slcs[@]} )); then
-  echo "Orbit files already downloaded (found $num_existing_orbits orbit files for ${#slcs[@]} SLC files)"
-  echo "Skipping orbit download. Use 'rm $OUT_ROOT/*.EOF $OUT_ROOT/*.eof 2>/dev/null || true' to force re-download."
-  exit 0
-fi
+# if (( num_existing_orbits >= ${#slcs[@]} )); then
+#   echo "Orbit files already downloaded (found $num_existing_orbits orbit files for ${#slcs[@]} SLC files)"
+#   echo "Skipping orbit download. Use 'rm $OUT_ROOT/*.EOF $OUT_ROOT/*.eof 2>/dev/null || true' to force re-download."
+#   exit 0
+# fi
 
 echo "Downloading orbit files..."
 echo

@@ -72,8 +72,8 @@ and ContentDate/Start le ${END_DATE}T23:59:59.999Z \
 and OperationalMode eq 'IW' \
 and PolarisationChannels eq 'VV' \
 and OrbitDirection eq 'DESCENDING' \
-and PlatformSerialIdentifier eq 'A' \
-and SwathIdentifier eq '$SWATH'"
+and PlatformSerialIdentifier eq 'A'"
+#and SwathIdentifier eq '$SWATH'"
 
 # 0) Seed: find track+swath if not given
 seed=$(curl -s -G "$url" \
@@ -81,22 +81,22 @@ seed=$(curl -s -G "$url" \
   --data-urlencode "\$select=ParentProductName,RelativeOrbitNumber,SwathIdentifier,ContentDate" \
   --data-urlencode "\$orderby=ContentDate/Start desc" \
   --data-urlencode "\$top=1")
-
+#echo "seed: $seed"
 RELATIVE_ORBIT="${RELATIVE_ORBIT:-$(echo "$seed" | jq -r '.value[0].RelativeOrbitNumber')}"
 SWATH="${SWATH:-$(echo "$seed" | jq -r '.value[0].SwathIdentifier')}"
 
 echo "Using track (RelativeOrbitNumber): $RELATIVE_ORBIT"
-echo "Using subswath (SwathIdentifier): $SWATH"
+#echo "Using subswath (SwathIdentifier): $SWATH"
 
 # 1) Main query restricted to the same subswath + track
-filter="$filter_base and RelativeOrbitNumber eq $RELATIVE_ORBIT and SwathIdentifier eq '$SWATH'"
+filter="$filter_base and RelativeOrbitNumber eq $RELATIVE_ORBIT"
 
 response=$(curl -s -G "$url" \
   --data-urlencode "\$filter=$filter" \
   --data-urlencode "\$select=S3Path,ContentDate,PlatformSerialIdentifier,ParentProductName" \
   --data-urlencode "\$orderby=ContentDate/Start desc" \
   --data-urlencode "\$count=true" \
-  --data-urlencode "\$top=200")
+  --data-urlencode "\$top=400")
 
 #echo response: $response
 count=$(echo "$response" | jq -r '.["@odata.count"]')

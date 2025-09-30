@@ -144,7 +144,7 @@ miaplpy.timeseries.minTempCoh         = 0.2
 ############################
 
 # Reference point (keep on stable man-made target near deck)
-#mintpy.reference.lalo                 = $REFERENCE_POINT
+mintpy.reference.lalo                 = $REFERENCE_POINT
 mintpy.reference.maskFile             = no
 
 ########## 5.1 Modify network (data-driven pruning)
@@ -176,15 +176,20 @@ mintpy.geocode.laloStep               = 0.000070189, 0.000084286
 mintpy.geocode.interpMethod           = auto
 mintpy.geocode.fillValue              = auto
 
+mintpy.reference.date = 20181117   #[reference_date.txt / 20090214 / no], auto for reference_date.txt
+
 
 ###### Masking the bridge
 #mintpy.network.maskFile = /insar-data/InSAR/old/road_roi_mask.h5
 #miaplpy.inversion.mask = /insar-data/InSAR/old/road_roi_mask.h5
+
+mintpy.network.startDate       = 20181117
+mintpy.network.endDate         = 20201224
 EOF
 
 
 cd $DATA_DIR/$PROJECT_NAME/
-miaplpyApp $DATA_DIR/$PROJECT_NAME/$PROJECT_NAME.txt --dir ./miaplpy2
+miaplpyApp $DATA_DIR/$PROJECT_NAME/$PROJECT_NAME.txt --dir ./miaplpyafter
 
 
 
