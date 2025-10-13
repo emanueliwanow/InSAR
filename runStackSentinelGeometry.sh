@@ -92,7 +92,13 @@ stackSentinel.py \
   -s $DATA_DIR/$PROJECT_NAME/SLC/ \
   -d "$DEM_FILE" \
   -a $DATA_DIR/aux_cal \
-  -o $DATA_DIR/$PROJECT_NAME/orbits 
+  -o $DATA_DIR/$PROJECT_NAME/orbits  \
+  --start_date $START_DATE \
+  --stop_date $END_DATE 
+
+#   --start_date STARTDATE
+#                         Start date for stack processing. Acquisitions before start date are ignored. format should be YYYY-MM-DD e.g., 2015-01-23
+#   --stop_date STOPDATE  Stop date for stack processing. Acquisitions after stop date are ignored. format should be YYYY-MM-DD e.g., 2017-02-26
 
 
 run.py -i $DATA_DIR/$PROJECT_NAME/run_files/run_01_unpack_topo_reference

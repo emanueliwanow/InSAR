@@ -167,7 +167,7 @@ mintpy.troposphericDelay.weatherDir   = $DATA_DIR/$PROJECT_NAME/
 
 ########## 5.4 Inversion mask strictness
 # After cleaning, you can tighten these (default auto=0.7 is strict)
-mintpy.networkInversion.minTempCoh    = 0.3      #[0.0-1.0] temporal coherence mask
+mintpy.networkInversion.minTempCoh    = 0.6      #[0.0-1.0] temporal coherence mask
 
 ########## 5.5 Geocode
 mintpy.geocode                        = auto
@@ -176,20 +176,23 @@ mintpy.geocode.laloStep               = 0.000070189, 0.000084286
 mintpy.geocode.interpMethod           = auto
 mintpy.geocode.fillValue              = auto
 
-mintpy.reference.date = 20181117   #[reference_date.txt / 20090214 / no], auto for reference_date.txt
+mintpy.reference.date = 20221205   #[reference_date.txt / 20090214 / no], auto for reference_date.txt
 
 
 ###### Masking the bridge
 #mintpy.network.maskFile = /insar-data/InSAR/old/road_roi_mask.h5
 #miaplpy.inversion.mask = /insar-data/InSAR/old/road_roi_mask.h5
 
-mintpy.network.startDate       = 20181117
-mintpy.network.endDate         = 20201224
+# mintpy.network.startDate       = 20240504
+# mintpy.network.endDate         = 20241124
+#mintpy.network.startDate       = 20240422
+#mintpy.network.endDate         = 20240808
+
 EOF
 
 
 cd $DATA_DIR/$PROJECT_NAME/
-miaplpyApp $DATA_DIR/$PROJECT_NAME/$PROJECT_NAME.txt --dir ./miaplpyafter
+miaplpyApp $DATA_DIR/$PROJECT_NAME/$PROJECT_NAME.txt --dir ./miaplpy
 
 
 

@@ -117,7 +117,7 @@ echo "$response" | jq -c '.value[]' | while read -r item; do
   echo "Product #$counter - Start Date: $start_date Satellite: $platform_serial_identifier"
   
   # Only download every other product (odd-numbered products)
-  if [ $((counter % 4)) -eq 0 ]; then
+  if [ $((counter % 1)) -eq 0 ]; then
     echo "  --> Downloading product #$counter"
     # Strip off the "/measurement/…" to get the SAFE prefix
     safe_prefix="${s3path%/measurement*}/"
