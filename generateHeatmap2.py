@@ -5,31 +5,30 @@
 Gera Probabilidade de falha (P) por seção e um heatmap 1×N.
 
 Entrada:
-  - CSV com 1 coluna de data (Date/Data/Timestamp) e colunas S1..S{N}
+  - Dois CSVs com 1 coluna de data (Date/Data/Timestamp) e colunas S1..S{N}
+    * --csv-total : série completa
+    * --csv-90d   : janela dos últimos ~90 dias (mesmo layout)
   - Datas em qualquer formato parseável pelo pandas
 
 Parâmetros:
-  --csv <arquivo.csv>            caminho do CSV
+  --csv-total <arquivo.csv>      caminho do CSV da série total
+  --csv-90d <arquivo.csv>        caminho do CSV da janela dos últimos 90 dias
   --n_sections <N>               número total de seções (S1..SN) a representar no heatmap
   --nodata-color <hex>           cor para "sem dados" (default: #9e9e9e)
-  --date-col <nome>              (opcional) nome explícito da coluna de data
+  --date-col <nome>              (opcional) nome explícito da coluna de data (se ambos usarem o mesmo nome)
   --save <arquivo.png>           (opcional) salva o heatmap em arquivo
   --dpi <int>                    (opcional) resolução ao salvar (default: 140)
   --pillars <list>               (opcional) lista de tuplas com seções em que ha um pilar no meio das seções (ex: "S1,S2") (default: None)
 
-Critério de P:
-  - Base |vel|: <0.5→1; <1.0→2; <2.0→3; <3.0→4; ≥3.0→5
-  - +1 se |Δ90d| > 2 mm
-  - +1 se |acc|  > 1 mm/ano²
+Critério de P (novo):
+  - Base |vel_90d|: <0.5→1; <1.0→2; <2.0→3; <3.0→4; ≥3.0→5
+  - +1 se |acc_90d| > 1 mm/ano²
+  - +1 se agravamento vs. histórico: (mesmo sinal entre vel_total e vel_90d e |vel_90d| ≥ 1.2*|vel_total|) ou |acc_total| > 1
   - Clamped em [1,5]
 
-Δ90d:
-  - Último valor menos o primeiro registro >= (t_final - 90 dias)
-  - Se não houver amostra na janela, usa o primeiro valor da série como fallback
-
 Observações:
-  - Se uma seção S_k não existir no CSV ou tiver <4 pontos válidos, ela entra como "sem dados".
-  - A tabela é ordenada por P (desc) e |vel| (desc).
+  - Se uma seção S_k inexistir em qualquer CSV ou tiver <4 pontos válidos (após eventual fallback), ela entra como "sem dados".
+  - A tabela é ordenada por P (desc) e |vel_90d| (desc).
 """
 
 import argparse
@@ -40,55 +39,77 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-DATE_CANDIDATES = ("date", "data", "timestamp")
+
 
 # ---------- Cálculos por seção ----------
-def detect_date_column(df: pd.DataFrame, explicit: Optional[str] = None) -> str:
-    if explicit:
-        if explicit not in df.columns:
-            raise ValueError(f"Coluna de data '{explicit}' não encontrada no CSV.")
-        return explicit
-    for c in df.columns:
-        if c.lower().strip() in DATE_CANDIDATES:
-            return c
-    raise ValueError(f"Não encontrei coluna de data. Aceito: {DATE_CANDIDATES} ou use --date-col.")
 
-def series_metrics(df: pd.DataFrame, date_col: str, col: str
-                   ) -> Optional[Tuple[float, float, float, float]]:
-    sub = df[[date_col, col]].dropna()
-    if len(sub) < 4:
-        return None
-    # Tempo em anos desde a primeira observação
-    x = (sub[date_col] - sub[date_col].min()).dt.days.values / 365.25
-    y = sub[col].astype(float).values
-
-    # Velocidade (mm/ano)
-    vel = np.polyfit(x, y, 1)[0]
-    # Aceleração (mm/ano²) = 2*b2
-    b2, b1, b0 = np.polyfit(x, y, 2)
+def _fit_metrics(x_years: np.ndarray, y_mm: np.ndarray) -> Tuple[float, float]:
+    # Velocidade (mm/ano) via regressão linear; Aceleração (mm/ano²) via termo quadrático
+    vel = np.polyfit(x_years, y_mm, 1)[0]
+    b2, b1, b0 = np.polyfit(x_years, y_mm, 2)
     acc = 2.0 * b2
+    return float(vel), float(acc)
 
-    # Δ90d
-    t_end = sub[date_col].max()
-    ref = t_end - pd.Timedelta(days=90)
-    y_now = sub.iloc[-1][col]
-    if any(sub[date_col] >= ref):
-        y_past = sub.loc[sub[date_col] >= ref, col].iloc[0]
-    else:
-        y_past = sub.iloc[0][col]
-    d90 = float(y_now - y_past)
+def series_metrics(df_total: pd.DataFrame, date_col_total: str,
+                   df_90d: pd.DataFrame, date_col_90d: str,
+                   col: str
+                   ) -> Optional[Tuple[float, float, float, float]]:
+    """
+    Retorna tupla: (vel_90d, acc_90d, vel_total, acc_total)
+    Fallback: se a série 90d não tiver dados suficientes, recorta os últimos 90 dias da série total.
+    """
+    # ---- Série total ----
+    if col not in df_total.columns:
+        return None
+    subT = df_total[[date_col_total, col]].dropna()
+    if len(subT) < 4:
+        return None
 
-    return float(vel), float(acc), d90, float(y_now)
+    # Tempo em anos desde a primeira observação total
+    xT = (subT[date_col_total] - subT[date_col_total].min()).dt.days.values / 365.25
+    yT = subT[col].astype(float).values
+    vel_total, acc_total = _fit_metrics(xT, yT)
 
-def probability_P(vel: float, acc: float, d90: float) -> int:
-    av = abs(vel)
+    # ---- Série 90d (preferencialmente do CSV dedicado) ----
+    has_recent = (col in df_90d.columns)
+    subR = df_90d[[date_col_90d, col]].dropna() if has_recent else pd.DataFrame(columns=[date_col_90d, col])
+
+    # Se insuficiente, recorta dos 90 dias finais do total
+    if len(subR) < 4:
+        t_end = subT[date_col_total].max()
+        ref = t_end - pd.Timedelta(days=90)
+        subR = subT.loc[subT[date_col_total] >= ref, [date_col_total, col]].copy()
+
+    # Se ainda insuficiente, aborta
+    if len(subR) < 4:
+        return None
+
+    # Tempo em anos desde a primeira observação da janela
+    xR = (subR.iloc[:, 0] - subR.iloc[:, 0].min()).dt.days.values / 365.25
+    yR = subR.iloc[:, 1].astype(float).values
+    vel_90d, acc_90d = _fit_metrics(xR, yR)
+
+    return vel_90d, acc_90d, vel_total, acc_total
+
+def probability_P(vel_90d: float, acc_90d: float, vel_total: float, acc_total: float) -> int:
+    # Base por |vel_90d|
+    av = abs(vel_90d)
     if av < 0.5: P = 1
     elif av < 1.0: P = 2
     elif av < 2.0: P = 3
     elif av < 3.0: P = 4
     else: P = 5
-    if abs(d90) > 2.0: P += 1
-    if abs(acc) > 1.0: P += 1
+
+    # Aceleração recente forte
+    if abs(acc_90d) > 1.0:
+        P += 1
+
+    # Agravamento vs histórico (mesmo sinal e ganho de pelo menos 20%) ou aceleração histórica alta
+    same_sign = (vel_90d == 0) or (vel_total == 0) or (np.sign(vel_90d) == np.sign(vel_total))
+    worsened = same_sign and (abs(vel_90d) >= 1.2 * abs(vel_total))
+    if worsened or (abs(acc_total) > 1.0):
+        P += 1
+
     return max(1, min(5, int(P)))
 
 def p_color(P: Optional[int]) -> str:
@@ -148,7 +169,8 @@ def draw_heatmap_P(p_by_section: Dict[str, Optional[int]],
 # ---------- Pipeline ----------
 def main():
     ap = argparse.ArgumentParser(description="Calcula P por seção e gera heatmap 1×N.")
-    ap.add_argument("--csv", required=True, help="Caminho do CSV de série temporal")
+    ap.add_argument("--csv-total", required=True, help="Caminho do CSV de série temporal TOTAL")
+    ap.add_argument("--csv-90d", required=True, help="Caminho do CSV da janela dos últimos 90 dias")
     ap.add_argument("--n_sections", required=True, type=int, help="Número total de seções (S1..SN) no heatmap")
     ap.add_argument("--nodata-color", default="#9e9e9e", help="Cor para 'sem dados' (default: #9e9e9e)")
     ap.add_argument("--date-col", default=None, help="Nome da coluna de data (se quiser forçar)")
@@ -157,11 +179,18 @@ def main():
     ap.add_argument("--pillars", default=None, help="Lista de tuplas com seções em que ha um pilar entre as seções (ex: ['S1,S2','S3,S4'])")
     args = ap.parse_args()
 
-    # Carrega dados
-    df = pd.read_csv(args.csv)
-    df.columns = df.columns.str.strip()
-    date_col = detect_date_column(df, args.date_col)
-    df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+    # Carrega dados (TOTAL)
+    df_total = pd.read_csv(args.csv_total)
+    df_total.columns = df_total.columns.str.strip()
+    date_col_total = 'date'
+    df_total[date_col_total] = pd.to_datetime(df_total[date_col_total], errors="coerce")
+
+    # Carrega dados (90d)
+    df_90d = pd.read_csv(args.csv_90d)
+    df_90d.columns = df_90d.columns.str.strip()
+    # Se o usuário passou --date-col, assume o mesmo nome; senão detecta para o CSV de 90d
+    date_col_90d = 'date'
+    df_90d[date_col_90d] = pd.to_datetime(df_90d[date_col_90d], errors="coerce")
 
     # Lista de seções alvo
     target_sections = [f"S{i}" for i in range(1, args.n_sections + 1)]
@@ -184,71 +213,59 @@ def main():
     rows = []
     p_map: Dict[str, Optional[int]] = {}
     for s in target_sections:
-        if s not in df.columns:
-            # Sem dados para esta seção no CSV
+        if s not in df_total.columns:
             p_map[s] = None
             continue
-        mets = series_metrics(df, date_col, s)
+        mets = series_metrics(df_total, date_col_total, df_90d, date_col_90d, s)
         if mets is None:
             p_map[s] = None
             continue
-        vel, acc, d90, cur = mets
-        P = probability_P(vel, acc, d90)
+        vel_90d, acc_90d, vel_total, acc_total = mets
+        P = probability_P(vel_90d, acc_90d, vel_total, acc_total)
         p_map[s] = P
         rows.append({
             "ROI": s,
-            "Veloc_mm_ano": vel,
-            "Accel_mm_ano2": acc,
-            "Delta90d_mm": d90,
-            "Atual_mm": cur,
+            "Vel_90d_mm_ano": vel_90d,
+            "Acc_90d_mm_ano2": acc_90d,
+            "Vel_total_mm_ano": vel_total,
+            "Acc_total_mm_ano2": acc_total,
             "P": P,
             "Classe_P": p_label(P),
         })
 
     # Apply pillar logic: sections between two pillars get the same P
     if args.pillars and pillar_positions:
-        # pillar_positions contains the section numbers before each pillar
-        # e.g., if pillar is between S1 and S2, pillar_positions contains 1
         print(f"Pillar boundaries: {pillar_positions}")
-        
-        # Group sections into segments between consecutive pillars
         segments = []
         start = 1
         for boundary in pillar_positions:
             if start <= boundary:
                 segments.append((start, boundary))
                 start = boundary + 1
-        # Add the final segment if there are sections after the last pillar
         if start <= args.n_sections:
             segments.append((start, args.n_sections))
-        
         print(f"Segments: {segments}")
-        
-        # For each segment, find max P and apply to all sections in that segment
         for seg_start, seg_end in segments:
             segment_sections = [f"S{i}" for i in range(seg_start, seg_end + 1)]
             segment_P_values = [p_map[s] for s in segment_sections if s in p_map and p_map[s] is not None]
-            
             if segment_P_values:
                 max_P = max(segment_P_values)
-                # Apply max P to all sections in this segment
                 for s in segment_sections:
                     if s in p_map and p_map[s] is not None:
                         p_map[s] = max_P
-                        # Update the rows table as well
                         for row in rows:
                             if row["ROI"] == s:
                                 row["P"] = max_P
                                 row["Classe_P"] = p_label(max_P)
 
-    # Tabela ordenada por P desc e |vel| desc
+    # Tabela ordenada por P desc e |vel_90d| desc
     out = pd.DataFrame(rows)
     if not out.empty:
         out = out.sort_values(["P"], ascending=False, kind="mergesort")
-        out = out.iloc[out["Veloc_mm_ano"].abs().sort_values(ascending=False).index]
-        for col in ["Veloc_mm_ano", "Accel_mm_ano2", "Delta90d_mm", "Atual_mm"]:
+        out = out.iloc[out["Vel_90d_mm_ano"].abs().sort_values(ascending=False).index]
+        for col in ["Vel_90d_mm_ano", "Acc_90d_mm_ano2", "Vel_total_mm_ano", "Acc_total_mm_ano2"]:
             out[col] = out[col].astype(float).round(3)
-        print("\nProbabilidade por seção (critério explícito):\n")
+        print("\nProbabilidade por seção (critério aceler./veloc.):\n")
         print(out.to_string(index=False))
     else:
         print("Aviso: nenhuma seção com dados suficientes para cálculo.")
