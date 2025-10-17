@@ -33,7 +33,7 @@ Observações:
 
 import argparse
 from typing import Optional, Tuple, List, Dict
-
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -92,25 +92,43 @@ def series_metrics(df_total: pd.DataFrame, date_col_total: str,
     return vel_90d, acc_90d, vel_total, acc_total
 
 def probability_P(vel_90d: float, acc_90d: float, vel_total: float, acc_total: float) -> int:
-    # Base por |vel_90d|
-    av = abs(vel_90d)
-    if av < 0.5: P = 1
-    elif av < 1.0: P = 2
-    elif av < 2.0: P = 3
-    elif av < 3.0: P = 4
-    else: P = 5
+    """
+    P (1–5) priorizando métricas de longo prazo e usando 90d como modulador.
+    Baseia-se em evidências de que:
+      - desvios de vel. longa são tipicamente 0.2–0.6 mm/ano;
+      - ativos costumam ser ≥3–4 mm/ano;
+      - janelas curtas sofrem mais ruído/estacionalidade.
+    """
 
-    # Aceleração recente forte
-    if abs(acc_90d) > 1.0:
+    # --- 1) Base pela |vel_total| (mais confiável) ---
+    avT = abs(vel_total)
+    if avT < 0.5:      P = 1
+    elif avT < 1.0:    P = 2
+    elif avT < 2.0:    P = 3
+    elif avT < 4.0:    P = 4
+    else:              P = 5
+
+    # --- 2) Curvatura de longo prazo (aceleração total) ---
+    if abs(acc_total) > 1.0:
         P += 1
 
-    # Agravamento vs histórico (mesmo sinal e ganho de pelo menos 20%) ou aceleração histórica alta
+    # --- 3) Modulação pelos últimos 90d (mais ruidosos; apenas ajustam) ---
     same_sign = (vel_90d == 0) or (vel_total == 0) or (np.sign(vel_90d) == np.sign(vel_total))
-    worsened = same_sign and (abs(vel_90d) >= 1.2 * abs(vel_total))
-    if worsened or (abs(acc_total) > 1.0):
+    # Agravamento recente consistente: >= +25% na magnitude e mesmo sinal
+    if same_sign and (abs(vel_90d) >= 1.25 * abs(vel_total)) and (abs(vel_90d) >= 0.5):
         P += 1
 
+    # Contradição recente forte: sinal oposto e movimento não trivial (>1 mm/ano)
+    if (vel_90d != 0 and vel_total != 0 and np.sign(vel_90d) != np.sign(vel_total) and abs(vel_90d) > 1.0):
+        P -= 1
+
+    # Janela recente "calma": provável ruído/estação, reduz um nível
+    if abs(vel_90d) < 0.5 and abs(acc_90d) < 0.3:
+        P -= 1
+
+    # --- 4) Clamp ---
     return max(1, min(5, int(P)))
+
 
 def p_color(P: Optional[int]) -> str:
     # Paleta usada em nossas análises anteriores
@@ -141,14 +159,93 @@ def draw_heatmap_P(p_by_section: Dict[str, Optional[int]],
         P = p_by_section.get(s, None)
         color = p_color(P) if P is not None else nodata_color
         rect = patches.Rectangle((i, 0), 1, 1, lw=1, ec="black", fc=color)
+        if P == 1:
+            risk = "Muito baixo"
+        elif P == 2:
+            risk = "Baixo"
+        elif P == 3:
+            risk = "Moderado"
+        elif P == 4:
+            risk = "Alto"
+        elif P == 5:
+            risk = "Crítico"
+        else:
+            risk = "Sem dados"
         ax.add_patch(rect)
-        label = f"{s}\n{('P'+str(P)) if P is not None else 'NA'}"
-        ax.text(i + 0.5, 0.5, label, ha="center", va="center", fontsize=8, weight="bold")
+        label = f"{s}\n{('P'+str(P)) if P is not None else 'NA'}\n{risk}"
+        ax.text(i + 0.5, 0.5, label, ha="center", va="center", fontsize=5, weight="bold")
 
     ax.set_xlim(0, n_sections)
     ax.set_ylim(0, 1)
     ax.axis("off")
     ax.set_title(title, fontsize=12, weight="bold")
+
+    # Legenda compacta
+    handles = [
+        patches.Patch(facecolor=p_color(5), edgecolor='black', label='P5 - Crítico'),
+        patches.Patch(facecolor=p_color(4), edgecolor='black', label='P4 - Alto'),
+        patches.Patch(facecolor=p_color(3), edgecolor='black', label='P3 - Moderado'),
+        patches.Patch(facecolor=p_color(2), edgecolor='black', label='P2 - Baixo'),
+        patches.Patch(facecolor=p_color(1), edgecolor='black', label='P1 - Muito baixo'),
+        patches.Patch(facecolor=nodata_color, edgecolor='black', label='Sem dados'),
+    ]
+    ax.legend(handles=handles, loc="upper right", ncol=6, bbox_to_anchor=(1, 1.35), frameon=False, fontsize=8)
+
+    plt.tight_layout()
+    if save:
+        plt.savefig(save, dpi=dpi, bbox_inches="tight")
+    plt.show()
+
+# ---------- Heatmap ----------
+def draw_scaledHeatmap_P(p_by_section: Dict[str, Optional[int]],
+                   n_sections: int,
+                   nodata_color: str,
+                   title: str,
+                   save: Optional[str] = None,
+                   dpi: int = 140,
+                   height: float = None,
+                   width_each_section: List[float] = None) -> None:
+    order = [f"S{i}" for i in range(1, n_sections + 1)]
+    
+    
+    # Calculate total width for figure sizing
+    total_width = sum(width_each_section)
+    fig, ax = plt.subplots(figsize=(total_width * 0.6, height* 0.6))
+
+    # Draw rectangles with scaled widths
+    x_position = 0
+    for i, s in enumerate(order):
+        P = p_by_section.get(s, None)
+        color = p_color(P) if P is not None else nodata_color
+        width = width_each_section[i]
+        
+        rect = patches.Rectangle((x_position, 0), width, height, lw=1, ec="black", fc=color)
+        ax.add_patch(rect)
+        
+        # Center text in the rectangle
+        if P == 1:
+            risk = "Muito baixo"
+        elif P == 2:
+            risk = "Baixo"
+        elif P == 3:
+            risk = "Moderado"
+        elif P == 4:
+            risk = "Alto"
+        elif P == 5:
+            risk = "Crítico"
+        else:
+            risk = "Sem dados"
+        label = f"{s}\n{('P'+str(P)) if P is not None else 'NA'}\n{risk}"
+        ax.text(x_position + width/2, height/2, label, ha="center", va="center", fontsize=50, weight="bold")
+        
+        # Move x_position for next rectangle
+        x_position += width
+
+    ax.set_xlim(0, total_width)
+    ax.set_ylim(0, height)
+    ax.axis("off")
+    #ax.set_title(title, fontsize=12, weight="bold")
+    
 
     # Legenda compacta
     handles = [
@@ -159,11 +256,11 @@ def draw_heatmap_P(p_by_section: Dict[str, Optional[int]],
         patches.Patch(facecolor=p_color(1), edgecolor='black', label='P1'),
         patches.Patch(facecolor=nodata_color, edgecolor='black', label='Sem dados'),
     ]
-    ax.legend(handles=handles, loc="upper right", ncol=6, bbox_to_anchor=(1, 1.35), frameon=False, fontsize=8)
+    #ax.legend(handles=handles, loc="upper right", ncol=6, bbox_to_anchor=(1, 1.35), frameon=False, fontsize=8)
 
     plt.tight_layout()
     if save:
-        plt.savefig(save, dpi=dpi, bbox_inches="tight")
+        plt.savefig(save, dpi=dpi, bbox_inches="tight", transparent=True)
     plt.show()
 
 # ---------- Pipeline ----------
@@ -177,6 +274,9 @@ def main():
     ap.add_argument("--save", default=None, help="Arquivo de saída para o heatmap (opcional)")
     ap.add_argument("--dpi", default=140, type=int, help="DPI ao salvar (default: 140)")
     ap.add_argument("--pillars", default=None, help="Lista de tuplas com seções em que ha um pilar entre as seções (ex: ['S1,S2','S3,S4'])")
+    ap.add_argument("--save_scaled", default=None, help="Arquivo de saída para o heatmap escalado (opcional)")
+    ap.add_argument("--height", default=None, type=float, help="Altura do heatmap (default: None)")
+    ap.add_argument("--width_each_section",nargs='+',type=float, default=None, help="Largura de cada seção (default: None)")
     args = ap.parse_args()
 
     # Carrega dados (TOTAL)
@@ -232,6 +332,7 @@ def main():
             "P": P,
             "Classe_P": p_label(P),
         })
+    base_p_map = p_map.copy()
 
     # Apply pillar logic: sections between two pillars get the same P
     if args.pillars and pillar_positions:
@@ -270,9 +371,15 @@ def main():
     else:
         print("Aviso: nenhuma seção com dados suficientes para cálculo.")
 
+
+    PATH_SAVE = Path(args.save)
     # Heatmap
-    title = f"Heatmap de Probabilidade (P)"
-    draw_heatmap_P(p_map, args.n_sections, args.nodata_color, title, save=args.save, dpi=args.dpi)
+    title = f"Heatmap de Probabilidade (P) - Same probability for sections between pillars"
+    draw_heatmap_P(p_map, args.n_sections, args.nodata_color, title, save=PATH_SAVE.with_name(PATH_SAVE.stem + "_same_probability_for_sections_between_pillars.png"), dpi=args.dpi)
+    if args.save_scaled and args.height and args.width_each_section:
+        draw_scaledHeatmap_P(p_map, args.n_sections, args.nodata_color, title, save=args.save_scaled, dpi=args.dpi, height=args.height, width_each_section=args.width_each_section)
+    title = f"Heatmap de Probabilidade (P) - Base probability"
+    draw_heatmap_P(base_p_map, args.n_sections, args.nodata_color, title, save=PATH_SAVE.with_name(PATH_SAVE.stem + "_base.png"), dpi=args.dpi)
 
 if __name__ == "__main__":
     main()
