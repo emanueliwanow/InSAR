@@ -31,6 +31,7 @@ import geopandas as gpd
 from shapely import make_valid
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter  # <-- for lon/lat tick labels
+from matplotlib.colors import LinearSegmentedColormap  # <-- for custom colormap
 from mintpy.utils import readfile
 from pyproj import Transformer                # <-- projection to/from metric CRS
 from scipy.interpolate import griddata        # <-- resampling
@@ -164,6 +165,13 @@ def load_sections_as_metric(path: Path, declared_crs: str, metric_crs: str):
 
 
 # ----------------- helpers -----------------
+def create_green_red_colormap():
+    """Create a custom colormap from green to red."""
+    colors = ['#00FF00', '#FFFF00', '#FF0000']  # Green -> Yellow -> Red
+    n_bins = 256
+    cmap = LinearSegmentedColormap.from_list('green_red', colors, N=n_bins)
+    return cmap
+
 def project_to_metric(lon2d, lat2d, metric_crs):
     transformer = Transformer.from_crs("EPSG:4326", metric_crs, always_xy=True)
     X, Y = transformer.transform(lon2d, lat2d)
@@ -229,7 +237,7 @@ def main():
                     help="Negative buffer (meters) to shrink polygons before selection (0 to disable).")
 
     # Plot styling
-    ap.add_argument("--cmap", type=str, default="RdBu_r", help="Matplotlib colormap name.")
+    ap.add_argument("--cmap", type=str, default="jet", help="Matplotlib colormap name.")
     ap.add_argument("--vmin", type=float, default=None, help="Colorbar min (auto if omitted).")
     ap.add_argument("--vmax", type=float, default=None, help="Colorbar max (auto if omitted).")
     ap.add_argument("--dpi", type=int, default=300, help="Figure DPI when saving raster outputs.")
@@ -240,6 +248,14 @@ def main():
     ap.add_argument("--poly-linewidth", type=float, default=1.2, help="Polygon line width.")
     ap.add_argument("--square-cell-m", type=float, default=None,
                     help="Target square cell size in meters (default: geometric mean of native spacings).")
+    
+    # Absolute velocity plot options
+    ap.add_argument("--abs-velocity", action="store_true", 
+                    help="Use absolute velocity values (|velocity|).")
+    ap.add_argument("--green-red-cmap", action="store_true",
+                    help="Use custom green-to-red colormap instead of default.")
+    ap.add_argument("--out-abs", type=Path, default=None,
+                    help="Optional second output path for absolute velocity plot.")
     args = ap.parse_args()
 
     # Read velocity
@@ -281,6 +297,10 @@ def main():
 
     # Mask outside polygons and convert to mm/yr
     vel_plot = np.ma.masked_where(~inside2d | ~np.isfinite(vel), vel) * 1000.0
+    
+    # Apply absolute value if requested (only if NOT generating a second plot)
+    if args.abs_velocity and args.out_abs is None:
+        vel_plot = np.abs(vel_plot)
 
     # Project lon/lat grid to metric CRS for plotting
     X, Y = project_to_metric(lon2d, lat2d, args.metric_crs)
@@ -313,11 +333,15 @@ def main():
     Zg = np.where(inside_poly, Zg, np.nan)
     Zg = np.ma.masked_invalid(Zg)
 
+    # Determine colormap for first plot
+    # Use default colormap for first plot, green-red only for absolute plot
+    cmap_to_use = args.cmap
+    
     # Plot
     fig, ax = plt.subplots(figsize=tuple(args.figsize))
     pm = ax.pcolormesh(
         Xg, Yg, Zg,
-        shading="nearest", cmap=args.cmap,
+        shading="nearest", cmap=cmap_to_use,
         vmin=args.vmin, vmax=args.vmax,
         rasterized=True, alpha=args.alpha,
     )
@@ -386,7 +410,11 @@ def main():
     # --------------------------------------------------------------------------
 
     cb = fig.colorbar(pm, ax=ax, fraction=0.046, pad=0.04)
-    cb.set_label("velocity [mm/year]")
+    # Only show absolute label if generating single plot with absolute values
+    if args.abs_velocity and args.out_abs is None:
+        cb.set_label("|velocity| [mm/year]")
+    else:
+        cb.set_label("velocity [mm/year]")
 
     # Title
     if args.title:
@@ -394,7 +422,10 @@ def main():
     else:
         proj = atr.get("PROJECT_NAME", "") or atr.get("PROJECT", "") or ""
         sat = atr.get("PLATFORM", "") or atr.get("SENSOR", "") or ""
-        tit = f"Velocity inside sections"
+        tit = "Velocity inside sections"
+        # Only add "Absolute" prefix if generating single plot with absolute values
+        if args.abs_velocity and args.out_abs is None:
+            tit = "Absolute " + tit
         extra = " • ".join([s for s in (sat, proj) if s])
         if extra:
             tit += f" ({extra})"
@@ -408,6 +439,89 @@ def main():
     fig.savefig(args.out, dpi=args.dpi, bbox_inches="tight")
     plt.close(fig)
     print("Done.")
+    
+    # Generate second plot with absolute velocity if requested
+    if args.out_abs is not None:
+        print("Generating absolute velocity plot...")
+        # Create absolute velocity data
+        vel_abs = np.abs(vel_plot)
+        
+        # Resample with absolute values
+        Xg_abs, Yg_abs, Zg_abs = resample_to_square_grid(
+            X, Y, vel_abs, 
+            cell_size_m=args.square_cell_m, 
+            bounds=bounds, 
+            method="nearest"
+        )
+        
+        # Apply mask
+        Zg_abs = np.where(inside_poly, Zg_abs, np.nan)
+        Zg_abs = np.ma.masked_invalid(Zg_abs)
+        
+        # Create plot with green-to-red colormap
+        fig_abs, ax_abs = plt.subplots(figsize=tuple(args.figsize))
+        cmap_abs = create_green_red_colormap()
+        pm_abs = ax_abs.pcolormesh(
+            Xg_abs, Yg_abs, Zg_abs,
+            shading="nearest", cmap=cmap_abs,
+            vmin=args.vmin, vmax=args.vmax,
+            rasterized=True, alpha=args.alpha,
+        )
+        
+        # Overlay polygon outline
+        gpd.GeoSeries(poly_metric).boundary.plot(
+            ax=ax_abs, 
+            color=args.poly_edgecolor, 
+            linewidth=args.poly_linewidth
+        )
+        
+        # Add section labels
+        try:
+            for _, row in gdf_lbl.iterrows():
+                geom = row.geometry
+                if geom is None or geom.is_empty:
+                    continue
+                rp = geom.representative_point()
+                label = pick_name(row)
+                ax_abs.text(rp.x, rp.y + y_off, label, ha="center", va="bottom",
+                           fontsize=10, fontweight="bold", color="black")
+        except Exception:
+            pass
+        
+        # Configure axes
+        ax_abs.set_xlim(bounds[0], bounds[2])
+        ax_abs.set_ylim(bounds[1], bounds[3])
+        ax_abs.set_aspect('equal', adjustable='box')
+        
+        # Format tick labels
+        ax_abs.xaxis.set_major_formatter(FuncFormatter(fmt_x))
+        ax_abs.yaxis.set_major_formatter(FuncFormatter(fmt_y))
+        ax_abs.set_xlabel("Longitude")
+        ax_abs.set_ylabel("Latitude")
+        
+        # Colorbar
+        cb_abs = fig_abs.colorbar(pm_abs, ax=ax_abs, fraction=0.046, pad=0.04)
+        cb_abs.set_label("|velocity| [mm/year]")
+        
+        # Title
+        proj = atr.get("PROJECT_NAME", "") or atr.get("PROJECT", "") or ""
+        sat = atr.get("PLATFORM", "") or atr.get("SENSOR", "") or ""
+        tit_abs = "Absolute Velocity inside sections"
+        extra = " • ".join([s for s in (sat, proj) if s])
+        if extra:
+            tit_abs += f" ({extra})"
+        ax_abs.set_title(tit_abs)
+        
+        ax_abs.grid(True, linestyle=":", linewidth=0.5, alpha=0.5)
+        
+        # Save
+        args.out_abs.parent.mkdir(parents=True, exist_ok=True)
+        print(f"Saving absolute velocity figure to: {args.out_abs}")
+        fig_abs.savefig(args.out_abs, dpi=args.dpi, bbox_inches="tight")
+        plt.close(fig_abs)
+        print("Done with absolute velocity plot.")
+
+    
 
 
 if __name__ == "__main__":

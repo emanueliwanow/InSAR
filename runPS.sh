@@ -176,7 +176,7 @@ mintpy.geocode.laloStep               = 0.000070189, 0.000084286
 mintpy.geocode.interpMethod           = auto
 mintpy.geocode.fillValue              = auto
 
-mintpy.reference.date = 20221205   #[reference_date.txt / 20090214 / no], auto for reference_date.txt
+mintpy.reference.date = 20230811   #[reference_date.txt / 20090214 / no], auto for reference_date.txt
 
 
 ###### Masking the bridge
