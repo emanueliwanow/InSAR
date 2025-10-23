@@ -42,7 +42,7 @@ def add_cover_page(pp, project, title, start_date, end_date):
     ax.axis("off")
 
     # Add logo at the top
-    logo_path = Path("./pictures/SAW_Logo.jpg")
+    logo_path = Path("/insar-data/InSAR/pictures/SAW_Logo.jpg")
     if logo_path.exists():
         try:
             logo = mpimg.imread(str(logo_path))
@@ -95,6 +95,101 @@ def add_image_page(pp, img_path: Path, caption: str):
     pp.savefig(fig, dpi=200)
     plt.close(fig)
 
+def add_heatmap_probability_explanation_page(pp):
+    """Adiciona uma página explicando como o P (probabilidade) é calculado."""
+    fig = plt.figure(figsize=(11.69, 16.54))  # A4 landscape
+    fig.patch.set_facecolor("white")
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.axis("off")
+
+    # Título
+    fig.text(0.5, 0.92, "Como o P do heatmap é calculado",
+             ha="center", va="center", fontsize=18, fontweight="bold")
+
+    # Helper para escrever blocos com quebra automática
+    def write_block(x, y, text, size=11, bold=False, mono=False, width=120, dy=0.01):
+        fontweight = "bold" if bold else "normal"
+        family = "monospace" if mono else None
+        wrapped = fill(text, width)
+        for i, line in enumerate(wrapped.splitlines()):
+            fig.text(x, y - i*dy, line, fontsize=size, fontweight=fontweight, fontfamily=family)
+        # retorna y final após o bloco
+        lines = len(wrapped.splitlines())
+        return y - lines*dy - 0.010  # espaço extra após o parágrafo
+
+    x = 0.05
+    y = 0.86
+
+    # 1) Entradas
+    y = write_block(x, y, "1) Entradas", size=13, bold=True)
+    y = write_block(x, y, "- Dois CSVs por seção (S_k) com deslocamentos em mm:")
+    y = write_block(x, y, "  1) Série TOTAL (todo o histórico).  2) Janela RECENTE (~90 dias).")
+    y = write_block(x, y, "- Coluna de data (datetime) e colunas S1..SN. Remoção de nulos. "
+                          "Exigência de ≥4 amostras por ajuste. Para 90d com <4 pontos, faz-se fallback "
+                          "recortando 90d do total; persistindo <4, a seção fica 'Sem dados'.")
+
+    # 2) Métricas por regressão
+    y = write_block(x, y, "2) Métricas estimadas por regressão", size=13, bold=True)
+    y = write_block(x, y, "Tempo em anos desde a primeira amostra da janela considerada.")
+    y = write_block(x, y, "Velocidade (mm/ano): ajuste linear y = a·x + b → vel = a.")
+    y = write_block(x, y, "Aceleração (mm/ano²): ajuste quadrático y = c·x² + d·x + e → acc = 2c.")
+    y = write_block(x, y, "Resultado por seção: vel_total, acc_total (histórico) e vel_90d, acc_90d (recentes).")
+
+    # 3) Cálculo do P
+    y = write_block(x, y, "3) Cálculo de P (1–5)", size=13, bold=True)
+
+    # 3.1 Base por |vel_total|
+    y = write_block(x, y, "3.1 Base por |vel_total| (mm/ano):", bold=True)
+    tabela = (
+        "  |vel_total| < 0.5           →  P = 1\n"
+        "  0.5 ≤ |vel_total| < 1.0     →  P = 2\n"
+        "  1.0 ≤ |vel_total| < 2.0     →  P = 3\n"
+        "  2.0 ≤ |vel_total| < 4.0     →  P = 4\n"
+        "  |vel_total| ≥ 4.0           →  P = 5"
+    )
+    y = write_block(x, y, tabela, mono=True)
+
+    # 3.2 Curvatura de longo prazo
+    y = write_block(x, y, "3.2 Curvatura (histórico):", bold=True)
+    y = write_block(x, y, "+1 nível se |acc_total| > 1.0 mm/ano² (indica curvatura sustentada).")
+
+    # 3.3 Modulação pelos últimos 90 dias
+    y = write_block(x, y, "3.3 Modulação pelos últimos 90 dias (não substitui o histórico):", bold=True)
+    y = write_block(x, y, "- Agravamento consistente (sobe 1): mesmo sinal entre vel_90d e vel_total "
+                          "E |vel_90d| ≥ 1.25·|vel_total| E |vel_90d| ≥ 0.5 mm/ano.")
+    y = write_block(x, y, "- Contradição recente forte (desce 1): sinais opostos entre vel_90d e vel_total "
+                          "E |vel_90d| > 1.0 mm/ano.")
+    y = write_block(x, y, "- Janela recente 'calma' (desce 1): |vel_90d| < 0.5 E |acc_90d| < 0.3 mm/ano².")
+
+    # 3.4 Limites
+    y = write_block(x, y, "3.4 Limites:", bold=True)
+    y = write_block(x, y, "Após os ajustes, aplica-se clamp: P ∈ {1, 2, 3, 4, 5}.")
+
+    # 4) Casos de borda
+    y = write_block(x, y, "4) Casos de borda", size=13, bold=True)
+    y = write_block(x, y, "- vel_total = 0 ou vel_90d = 0: o teste de 'mesmo sinal' é tratado de forma tolerante "
+                          "(considera 'mesmo') para não penalizar ruído muito baixo.")
+    y = write_block(x, y, "- Se alguma métrica não puder ser estimada (poucos pontos), a seção fica 'Sem dados'.")
+    y = write_block(x, y, "- Opcional: regra de pilares pode uniformizar P entre seções contidas no mesmo vão.")
+
+    # 5) Saída
+    y = write_block(x, y, "5) Saída", size=13, bold=True)
+    y = write_block(x, y, "Para cada seção: Vel_90d_mm_ano, Acc_90d_mm_ano2, Vel_total_mm_ano, "
+                          "Acc_total_mm_ano2, P, Classe_P; além de um heatmap 1×N colorido por P.")
+
+    # 6) Intuição
+    y = write_block(x, y, "6) Intuição resumida", size=13, bold=True)
+    y = write_block(x, y, "O longo prazo comanda (robusto ao ruído); curvatura histórica eleva risco; "
+                          "os 90 dias apenas modulam (agravam se coerentes e mais rápidos; aliviam se contradizem "
+                          "forte ou se estão calmos).")
+
+    # Rodapé
+    fig.text(0.5, 0.04, "Esta lógica prioriza estabilidade do histórico sem perder sensibilidade a pioras recentes.",
+             ha="center", va="center", fontsize=9, alpha=0.7)
+
+    pp.savefig(fig, dpi=200)
+    plt.close(fig)
+
 
 def add_summary_page(pp, included, missing):
     fig = plt.figure(figsize=(11.69, 8.27))
@@ -130,7 +225,7 @@ def add_summary_page(pp, included, missing):
 def main():
     parser = argparse.ArgumentParser(description="Generate an InSAR PDF report from standard project figures.")
     parser.add_argument("--project", required=True, help='Project name, e.g. "Tocantins24meses"')
-    parser.add_argument("--title", required=True, help='Project title for the cover page')
+    parser.add_argument("--title", required=True,type=str, help='Project title for the cover page')
     parser.add_argument("--start", required=True, help='Analysis START_DATE, e.g. "2022-12-01"')
     parser.add_argument("--end", required=True, help='Analysis END_DATE, e.g. "2024-12-01"')
     parser.add_argument("--base-dir", default="/insar-data", help='Base data directory (default: /insar-data)')
@@ -190,6 +285,8 @@ def main():
             add_image_page(pp, path, caption)
             (included if path.exists() else missing).append(str(path))
 
+        add_heatmap_probability_explanation_page(pp)
+        
         # summary / appendix
         add_summary_page(pp, included, missing)
 

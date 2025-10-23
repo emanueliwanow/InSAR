@@ -29,9 +29,9 @@ from mintpy.utils import readfile
 # Default values for backward compatibility
 DEFAULT_PROJECT_NAME = "RioNiteroi"
 DEFAULT_MIAPLPY_VERSION = "miaplpy4"
+DEFAULT_COH_THR = 0.4
 
 POLYGON_NAME_FIELD = "Name"   # (optional) attribute in GeoJSON to use as series label, else "poly_<i>"
-COH_THR = 0.0   # set to None to disable temporal coherence filtering
 UNITS   = "mm"   # "m" or "mm"
 LINEWIDTH = 2.0
 # -------------------------------------------------
@@ -289,7 +289,7 @@ def apply_smoothing_filter(series, window=5, method='gaussian'):
 
 
 # ----------------- MAIN -----------------
-def main(project_name, miaplpy_version):
+def main(project_name, miaplpy_version, shrink_eps_m=0.2, coh_thr=0.4):
     # Build paths based on arguments
     TS_PATH   = Path(f"/insar-data/{project_name}/{miaplpy_version}/network_delaunay_4/timeseries_ERA5_demErr.h5")
     TC_PATH   = Path(f"/insar-data/{project_name}/{miaplpy_version}/network_delaunay_4/temporalCoherence.h5")
@@ -326,7 +326,8 @@ def main(project_name, miaplpy_version):
     tc      = read_2d_mintpy(TC_PATH, candidates=("/temporalCoherence","temporalCoherence")).astype(np.float32)  # (R, C)
     if ps_mask.shape != (R, C) or tc.shape != (R, C):
         raise ValueError(f"Mask/TC shape mismatch: mask {ps_mask.shape}, tc {tc.shape}, data {(R,C)}")
-    keep_flat = (tc.ravel() >= COH_THR)
+    #keep_flat = ps_mask.ravel()
+    keep_flat = (tc.ravel() >= coh_thr) #& (tc.ravel() != 1.0)
     # keep = ps_mask.copy()
     # if COH_THR is not None:
     #     keep &= (tc >= COH_THR)
@@ -334,6 +335,15 @@ def main(project_name, miaplpy_version):
 
     print(f"Loading polygons from GeoJSON: {POLYGONS_GEOJSON}")
     gdf_poly = load_polygons_geojson(POLYGONS_GEOJSON)
+    
+    # Apply shrink buffer if specified
+    if shrink_eps_m > 0:
+        print(f"Applying shrink buffer of {shrink_eps_m} meters to polygon boundaries...")
+        # Convert to a metric CRS for accurate buffering
+        metric_crs = "EPSG:3857"  # Web Mercator
+        gdf_poly_metric = gdf_poly.to_crs(metric_crs)
+        gdf_poly_metric['geometry'] = gdf_poly_metric.geometry.buffer(-shrink_eps_m)
+        gdf_poly = gdf_poly_metric.to_crs("EPSG:4326")
 
     # Build points geodataframe (pixel centers)
     print("Building pixel-center points GeoDataFrame…")
@@ -480,6 +490,18 @@ if __name__ == "__main__":
         default=DEFAULT_MIAPLPY_VERSION,
         help=f"Miaplpy version (default: {DEFAULT_MIAPLPY_VERSION})"
     )
+    parser.add_argument(
+        "--shrink-eps-m",
+        type=float,
+        default=0.0,
+        help="Shrink polygon boundaries by this amount in meters (default: 0.2)"
+    )
+    parser.add_argument(
+        "--coh-thr",
+        type=float,
+        default=DEFAULT_COH_THR,
+        help=f"Temporal coherence threshold (default: {DEFAULT_COH_THR})"
+    )
     
     args = parser.parse_args()
-    main(args.project_name, args.miaplpy_version)
+    main(args.project_name, args.miaplpy_version, args.shrink_eps_m, args.coh_thr)

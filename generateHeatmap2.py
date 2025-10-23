@@ -354,10 +354,10 @@ def main():
                 for s in segment_sections:
                     if s in p_map and p_map[s] is not None:
                         p_map[s] = max_P
-                        for row in rows:
-                            if row["ROI"] == s:
-                                row["P"] = max_P
-                                row["Classe_P"] = p_label(max_P)
+                        # for row in rows:
+                        #     if row["ROI"] == s:
+                        #         row["P"] = max_P
+                        #         row["Classe_P"] = p_label(max_P)
 
     # Tabela ordenada por P desc e |vel_90d| desc
     out = pd.DataFrame(rows)
