@@ -487,8 +487,9 @@ def main():
         S_sp = spatial_consistency(idx, sbounds, v_recent_map, s_recent_map, neighbor_radius=args.neighbor_radius)
 
         # Recompute aggregate S with S_sp now
-        S = 0.30 * scores.S_v + 0.20 * scores.S_a + 0.25 * scores.S_cp + 0.15 * S_sp + 0.10 * scores.S_temp
-        S_star = scores.W * S
+        S = 0.40 * scores.S_v + 0.20 * scores.S_a + 0.20 * scores.S_cp + 0.10 * S_sp + 0.10 * scores.S_temp
+        alpha = 0.2
+        S_star = (alpha + (1-alpha)*scores.W) * S
         risk_class = int(1 + round(4 * max(0.0, min(1.0, S_star))))
 
         results.append({
