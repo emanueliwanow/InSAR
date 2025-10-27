@@ -30,7 +30,7 @@ CSV_90D="/insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_ts_filterWindow3Last90
 SAVE_HEATMAP="/insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_heatmap2.png"
 
 
-python /insar-data/InSAR/generateCSVandPlot.py --project-name $PROJECT_NAME \
+python /insar-data/InSAR/report/generateCSVandPlot.py --project-name $PROJECT_NAME \
     --miaplpy-version $MIAPLPY_VERSION \
     --shrink-eps-m 1.5 \
     --coh-thr 0.0
@@ -41,14 +41,14 @@ python /insar-data/InSAR/generateCSVandPlot.py --project-name $PROJECT_NAME \
 #     --save $SAVE_HEATMAP \
 #     --pillars $PILLARS 
 
-python /insar-data/InSAR/calculateProb.py \
+python /insar-data/InSAR/report/calculateProb.py \
   --csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_ts_noFilter.csv \
   --pillars $PILLARS \
   --out-csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk.csv \
   --tau-v 4 --tau-a 4 --tau-sigma 1.2 --m0 4.7
   #--save-heatmap /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk_heatmap.png \
 
-python /insar-data/InSAR/plotHeatmap.py \
+python /insar-data/InSAR/report/plotHeatmap.py \
     --csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk.csv \
     --n_sections $N_SECTIONS \
     --save-prefix /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_heatmap
@@ -86,7 +86,7 @@ python /insar-data/InSAR/plotHeatmap.py \
 #      # --exclude-tc-eq1 
 #      # --points --point-size 10 --step 1
 
-python /insar-data/InSAR/generateVelocityMap2.py \
+python /insar-data/InSAR/report/generateVelocityMap.py \
       --velocity /insar-data/$PROJECT_NAME/$MIAPLPY_VERSION/network_delaunay_4/velocity.h5 \
       --polygons /insar-data/$PROJECT_NAME/$PROJECT_NAME.geojson \
       --geometry /insar-data/$PROJECT_NAME/$MIAPLPY_VERSION/network_delaunay_4/inputs/geometryRadar.h5 \
@@ -100,6 +100,6 @@ python /insar-data/InSAR/generateVelocityMap2.py \
      # --exclude-tc-eq1 
      # --points --point-size 10 --step 1
 
-python /insar-data/InSAR/generateVelAccPlot.py --project-name $PROJECT_NAME --csv-path /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_ts_filterWindow5.csv
+python /insar-data/InSAR/report/generateVelAccPlot.py --project-name $PROJECT_NAME --csv-path /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_ts_filterWindow5.csv
 
-python /insar-data/InSAR/generateReport.py --project $PROJECT_NAME --title $PROJECT_TITLE --start $START_DATE --end $END_DATE --out /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_report.pdf
+python /insar-data/InSAR/report/generateReport.py --project $PROJECT_NAME --title $PROJECT_TITLE --start $START_DATE --end $END_DATE --out /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_report.pdf
