@@ -35,11 +35,24 @@ python /insar-data/InSAR/generateCSVandPlot.py --project-name $PROJECT_NAME \
     --shrink-eps-m 1.5 \
     --coh-thr 0.0
 
-python /insar-data/InSAR/generateHeatmap2.py --csv-total $CSV_TOTAL \
-    --csv-90d $CSV_90D \
+# python /insar-data/InSAR/generateHeatmap2.py --csv-total $CSV_TOTAL \
+#     --csv-90d $CSV_90D \
+#     --n_sections $N_SECTIONS \
+#     --save $SAVE_HEATMAP \
+#     --pillars $PILLARS 
+
+python /insar-data/InSAR/calculateProb.py \
+  --csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_ts_noFilter.csv \
+  --pillars $PILLARS \
+  --out-csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk.csv \
+  --tau-v 4 --tau-a 4 --tau-sigma 1.2 --m0 4.7
+  #--save-heatmap /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk_heatmap.png \
+
+python /insar-data/InSAR/plotHeatmap.py \
+    --csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk.csv \
     --n_sections $N_SECTIONS \
-    --save $SAVE_HEATMAP \
-    --pillars $PILLARS 
+    --save-prefix /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_heatmap
+
 
 # python /insar-data/InSAR/generateVelocityMap.py \
 #       --velocity /insar-data/$PROJECT_NAME/$MIAPLPY_VERSION/network_delaunay_4/velocity.h5 \

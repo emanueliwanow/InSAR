@@ -249,9 +249,9 @@ def main():
     expected = [
         (f"{project}_Sections.png",
          "Sections of the bridge."),
-        (f"{project}_heatmap2_base.png",
+        (f"{project}_heatmap_by_section.png",
          "Base probability heatmap (all sections)."),
-        (f"{project}_heatmap2_same_probability_for_sections_between_pillars.png",
+        (f"{project}_heatmap_by_span.png",
          "Probability heatmap with equalized probabilities for sections between pillars."),
         (f"{project}_Plot.png",
          "Displacement time series per section (trend and recent behavior)."),

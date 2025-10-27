@@ -38,5 +38,10 @@ python /insar-data/InSAR/calculateProb.py \
   --csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_ts_noFilter.csv \
   --pillars $PILLARS \
   --out-csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk.csv \
-  --save-heatmap /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk_heatmap.png \
   --tau-v 4 --tau-a 4 --tau-sigma 1.2 --m0 4.7
+  #--save-heatmap /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk_heatmap.png \
+
+python /insar-data/InSAR/plotHeatmap.py \
+    --csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk.csv \
+    --n_sections $N_SECTIONS \
+    --save-prefix /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}

@@ -52,6 +52,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 # ------------------------- Utilities -------------------------
 
@@ -491,7 +492,13 @@ def main():
         alpha = 0.2
         S_star = (alpha + (1-alpha)*scores.W) * S
         risk_class = int(1 + round(4 * max(0.0, min(1.0, S_star))))
-
+        S_supervised_raw = (
+            0.55 * scores.S_cp     # strong recent change drives high risk
+        + 0.20 * scores.S_v      # sustained trend
+        + 0.15 * scores.S_a      # acceleration as early warning
+        + 0.05 * S_sp            # spatial propagation on the span
+        + 0.05 * scores.S_temp   # motion unexplained by temperature
+        )
         results.append({
             "Section": sec,
             "SpanID": spans.index(sbounds),
@@ -503,6 +510,7 @@ def main():
             "W": round(scores.W, 4),
             "S": round(S, 4),
             "S_star": round(S_star, 4),
+            "S_supervised_raw": S_supervised_raw,
             "RiskClass": risk_class,
             # Fit metrics for auditability
             "v_mm_per_yr": round(metrics.v_mm_per_yr, 3),
@@ -516,7 +524,29 @@ def main():
         })
 
     out = pd.DataFrame(results).sort_values("Section")
+    # Normalize S_supervised_raw to [0,1]
+    S_min = out["S_supervised_raw"].min()
+    S_max = out["S_supervised_raw"].max()
+    den = (S_max - S_min) if (S_max - S_min) > 1e-9 else 1.0
+    out["S_supervised"] = (out["S_supervised_raw"] - S_min) / den
 
+    # Map to classes with a high bar for class 5
+    T12, T23, T34, T45 = 0.55, 0.70, 0.85, 0.93
+    out["RiskClass_supervised"] = np.select(
+        [
+            out["S_supervised"] < T12,
+            out["S_supervised"] < T23,
+            out["S_supervised"] < T34,
+            out["S_supervised"] < T45,
+        ],
+        [1, 2, 3, 4],
+        default=5
+    ).astype(int)
+
+    # Gate: only allow class 5 when there is strong recent change and some spatial support
+    mask5 = out["RiskClass_supervised"] == 5
+    gate = (out["S_cp"] >= 0.80) & (out["S_sp"] >= 0.30)
+    out.loc[mask5 & ~gate, "RiskClass_supervised"] = 4
     # Print compact summary
     print("\nPer-section risk class (1–5):")
     print(out[["Section", "SpanID", "RiskClass", "S_star", "v_mm_per_yr", "a_mm_per_yr2"]].to_string(index=False))
