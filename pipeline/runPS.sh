@@ -123,15 +123,15 @@ miaplpy.interferograms.networkType = delaunay   #[mini_stacks,single_reference,s
 ############################
 # Patch-wise phase linking
 miaplpy.inversion.patchSize           = auto     # auto ~200
-miaplpy.inversion.ministackSize       = 5       # images per mini-stack
+miaplpy.inversion.ministackSize       = 10       # images per mini-stack
 # SHP windows - keep small so bridge pixels don't mix with forest
-miaplpy.inversion.rangeWindow         = 15
-miaplpy.inversion.azimuthWindow       = 15
-miaplpy.inversion.shpTest             = auto     #[ks,ad,ttest]; auto->ks
-miaplpy.inversion.phaseLinkingMethod  = sequential_EMI  #[EVD,EMI,PTA,sequential_*]
+miaplpy.inversion.rangeWindow         = 5
+miaplpy.inversion.azimuthWindow       = 5
+miaplpy.inversion.shpTest             = ks     #[ks,ad,ttest]; auto->ks
+miaplpy.inversion.phaseLinkingMethod  = EMI  #[EVD,EMI,PTA,sequential_*]
 miaplpy.inversion.sbw_connNum         = auto
 miaplpy.inversion.PsNumShp            = 10        # neighbors used for PS candidate
-# miaplpy.inversion.mask                = /insar-data/InSAR/road_roi_mask.h5
+#miaplpy.inversion.mask                = $DATA_DIR/$PROJECT_NAME/bridge_mask.h5
 
 ############################
 # 4) Time series threshold (MiaplPy)
@@ -176,7 +176,7 @@ mintpy.geocode.laloStep               = 0.000070189, 0.000084286
 mintpy.geocode.interpMethod           = auto
 mintpy.geocode.fillValue              = auto
 
-mintpy.reference.date = 20230811   #[reference_date.txt / 20090214 / no], auto for reference_date.txt
+mintpy.reference.date = 20170709   #[reference_date.txt / 20090214 / no], auto for reference_date.txt
 
 
 ###### Masking the bridge
@@ -185,8 +185,34 @@ mintpy.reference.date = 20230811   #[reference_date.txt / 20090214 / no], auto f
 
 # mintpy.network.startDate       = 20240504
 # mintpy.network.endDate         = 20241124
-#mintpy.network.startDate       = 20240422
-#mintpy.network.endDate         = 20240808
+#mintpy.network.startDate       = 20161001
+#mintpy.network.endDate         = 20190101
+
+# ########## 4. correct_unwrap_error (optional)
+# ## connected components (mintpy.load.connCompFile) are required for this step.
+# ## SNAPHU (Chem & Zebker,2001) is currently the only unwrapper that provides connected components as far as we know.
+# ## reference: Yunjun et al. (2019, section 3)
+# ## supported methods:
+# ## a. phase_closure          - suitable for highly redundant network
+# ## b. bridging               - suitable for regions separated by narrow decorrelated features, e.g. rivers, narrow water bodies
+# ## c. bridging+phase_closure - recommended when there is a small percentage of errors left after bridging
+# mintpy.unwrapError.method          = bridging  #[bridging / phase_closure / bridging+phase_closure / no], auto for no
+# mintpy.unwrapError.waterMaskFile   = auto  #[waterMask.h5 / no], auto for waterMask.h5 or no [if not found]
+# mintpy.unwrapError.connCompMinArea = auto  #[1-inf], auto for 2.5e3, discard regions smaller than the min size in pixels
+
+# ## phase_closure options:
+# ## numSample - a region-based strategy is implemented to speedup L1-norm regularized least squares inversion.
+# ##     Instead of inverting every pixel for the integer ambiguity, a common connected component mask is generated,
+# ##     for each common conn. comp., numSample pixels are radomly selected for inversion, and the median value of the results
+# ##     are used for all pixels within this common conn. comp.
+# mintpy.unwrapError.numSample       = auto  #[int>1], auto for 100, number of samples to invert for common conn. comp.
+
+# ## bridging options:
+# ## ramp - a phase ramp could be estimated based on the largest reliable region, removed from the entire interferogram
+# ##     before estimating the phase difference between reliable regions and added back after the correction.
+# ## bridgePtsRadius - half size of the window used to calculate the median value of phase difference
+# mintpy.unwrapError.ramp            = linear  #[linear / quadratic], auto for no; recommend linear for L-band data
+# mintpy.unwrapError.bridgePtsRadius = auto  #[1-inf], auto for 50, half size of the window around end points
 
 EOF
 

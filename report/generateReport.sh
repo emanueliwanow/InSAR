@@ -45,7 +45,7 @@ python /insar-data/InSAR/report/calculateProb.py \
   --csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_ts_noFilter.csv \
   --pillars $PILLARS \
   --out-csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk.csv \
-  --tau-v 4 --tau-a 4 --tau-sigma 1.2 --m0 4.7
+  --tau-v 10 --tau-a 10 --tau-sigma 10 
   #--save-heatmap /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk_heatmap.png \
 
 python /insar-data/InSAR/report/plotHeatmap.py \
@@ -102,4 +102,15 @@ python /insar-data/InSAR/report/generateVelocityMap.py \
 
 python /insar-data/InSAR/report/generateVelAccPlot.py --project-name $PROJECT_NAME --csv-path /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_ts_filterWindow5.csv
 
-python /insar-data/InSAR/report/generateReport.py --project $PROJECT_NAME --title $PROJECT_TITLE --start $START_DATE --end $END_DATE --out /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_report.pdf
+
+python /insar-data/InSAR/report/plotSBreakdown.py --csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk.csv --output /insar-data/$PROJECT_NAME/report/SPlot
+
+# python /insar-data/InSAR/report/plotResiduals.py \
+#   --csv /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_ts_noFilter.csv \
+#   --output-dir /insar-data/$PROJECT_NAME/report/residuals \
+#   --units mm 
+
+# python /insar-data/InSAR/report/plotVariables.py /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk.csv -o /insar-data/$PROJECT_NAME/report/variables
+# python /insar-data/InSAR/report/plotScores.py /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_bridge_risk.csv -o /insar-data/$PROJECT_NAME/report/scores
+
+python /insar-data/InSAR/report/generateReport2.py --project $PROJECT_NAME --title $PROJECT_TITLE --start $START_DATE --end $END_DATE --out /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_report.pdf
