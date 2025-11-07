@@ -46,9 +46,15 @@ SAVE_HEATMAP="/insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_heatmap2.png"
 #     --n_sections $N_SECTIONS \
 #     --save-prefix /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}
 
-save_kmz.py /insar-data/$PROJECT_NAME/$MIAPLPY_VERSION/network_delaunay_4/velocity.h5 \
+# save_kmz.py /insar-data/$PROJECT_NAME/$MIAPLPY_VERSION/network_delaunay_4/velocity.h5 \
+#     --g /insar-data/$PROJECT_NAME/$MIAPLPY_VERSION/network_delaunay_4/inputs/geometryRadar.h5 \
+#     --mask /insar-data/$PROJECT_NAME/$MIAPLPY_VERSION/maskPS.h5 \
+#     --step 1 \
+#     --output /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_velocity.kmz \
+#     -u mm/year
+
+save_kmz.py /insar-data/$PROJECT_NAME/sarvey/p2_coh70_ts.h5 \
     --g /insar-data/$PROJECT_NAME/$MIAPLPY_VERSION/network_delaunay_4/inputs/geometryRadar.h5 \
-    --mask /insar-data/$PROJECT_NAME/$MIAPLPY_VERSION/maskPS.h5 \
     --step 1 \
     --output /insar-data/$PROJECT_NAME/report/${PROJECT_NAME}_velocity.kmz \
     -u mm/year

@@ -218,7 +218,10 @@ EOF
 
 
 cd $DATA_DIR/$PROJECT_NAME/
-miaplpyApp $DATA_DIR/$PROJECT_NAME/$PROJECT_NAME.txt --dir ./miaplpy
+#miaplpyApp $DATA_DIR/$PROJECT_NAME/$PROJECT_NAME.txt --dir ./miaplpy
+miaplpyApp $DATA_DIR/$PROJECT_NAME/$PROJECT_NAME.txt --dostep load_data --dir ./miaplpy
+miaplpyApp $DATA_DIR/$PROJECT_NAME/$PROJECT_NAME.txt --dostep phase_linking --dir ./miaplpy
+miaplpyApp $DATA_DIR/$PROJECT_NAME/$PROJECT_NAME.txt --dostep concatenate_patches --dir ./miaplpy
 
 
 
